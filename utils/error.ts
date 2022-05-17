@@ -12,6 +12,7 @@ export interface DetErrorOptions {
   isUserTriggered?: boolean; // whether the error was triggered by an active interaction.
   level?: ErrorLevel;
   logger?: LoggerInterface;
+  name?: string;
   payload?: unknown;
   publicMessage?: string;
   publicSubject?: string;
@@ -59,6 +60,7 @@ export class DetError extends Error implements DetErrorOptions {
   payload?: unknown;
   publicMessage?: string;
   publicSubject?: string;
+  original?: unknown;
   silent: boolean;
   type: ErrorType;
   isHandled: boolean;
@@ -68,19 +70,17 @@ export class DetError extends Error implements DetErrorOptions {
     const message = options.publicSubject || options.publicMessage || defaultMessage;
     super(message);
 
-    const eOpts: DetErrorOptions = isDetError(e) ? {
-      id: e.id,
-      isUserTriggered: e.isUserTriggered,
-      level: e.level,
-      logger: e.logger,
-      payload: e.payload,
-      publicMessage: e.publicMessage,
-      publicSubject: e.publicSubject,
-      silent: e.silent,
-      type: e.type,
-    } : {};
+    // Maintains proper stack trace for where our error was thrown.
+    if (Error.captureStackTrace) Error.captureStackTrace(this, DetError);
 
-    this.loadOptions({ ...defaultErrOptions, ...eOpts, ...options });
+    // Override DetError defaults with options.
+    Object.assign(this, { ...defaultErrOptions, ...options });
+
+    // Save original error being passed in.
+    this.original = e;
+    this.name = e instanceof Error ? e.name : 'Error';
+
+    // Flag indicating whether this error has previously been handled by `handleError`.
     this.isHandled = false;
   }
 
